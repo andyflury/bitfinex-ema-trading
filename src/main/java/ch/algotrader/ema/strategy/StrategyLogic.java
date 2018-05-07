@@ -60,8 +60,8 @@ public class StrategyLogic implements InitializingBean {
     @Scheduled(cron = "*/10 * * * * *")
     public void ontime() {
         synchronized (series) {
-            createNewBar();
             evaluateLogic();
+            createNewBar();
         }
     }
 
@@ -78,16 +78,6 @@ public class StrategyLogic implements InitializingBean {
             Bar previousBar = series.getBar(i);
             newBar.addPrice(previousBar.getClosePrice());
 
-            // print previousBar
-            logger.info("open {} high {} low {} close {} vol {} trades {} emaDiff {}",
-                    previousBar.getOpenPrice(),
-                    previousBar.getMaxPrice(),
-                    previousBar.getMinPrice(),
-                    previousBar.getClosePrice(),
-                    previousBar.getVolume(),
-                    previousBar.getTrades(),
-                    i > 1 ? (this.emaDifference.getValue(i - 1) + " -> " + this.emaDifference.getValue(i)) : 0);
-
         }
 
         series.addBar(newBar);
@@ -97,14 +87,26 @@ public class StrategyLogic implements InitializingBean {
 
         int i = this.series.getEndIndex();
         if (i >= emaPeriodShort) {
-            Num currentValue = this.emaDifference.getValue(i);
-            Num previousValue = this.emaDifference.getValue(i - 1);
 
-            if (currentValue.doubleValue() > 0 && previousValue.doubleValue() <= 0) {
-                logger.info("!!!!!!!! BUY !!!!!!!!! ({} -> {})", previousValue, currentValue);
+            Bar bar = this.series.getBar(i);
+            Num emaDiff = this.emaDifference.getValue(i);
+            Num emaDiffPrev = this.emaDifference.getValue(i - 1);
+
+            logger.info("open {} high {} low {} close {} vol {} trades {} emaDiffPrev {} emaDiff {}",
+                    bar.getOpenPrice(),
+                    bar.getMaxPrice(),
+                    bar.getMinPrice(),
+                    bar.getClosePrice(),
+                    bar.getVolume(),
+                    bar.getTrades(),
+                    emaDiffPrev, 
+                    emaDiff);
+
+            if (emaDiff.doubleValue() > 0 && emaDiffPrev.doubleValue() <= 0) {
+                logger.info("!!!!!!!! BUY !!!!!!!!!)");
                 tradingService.sendOrder("buy", BigDecimal.valueOf(0.002), "BTCUSD");
-            } else if (currentValue.doubleValue() < 0 && previousValue.doubleValue() >= 0) {
-                logger.info("!!!!!!!! SELL !!!!!!!!! ({} -> {})", previousValue, currentValue);
+            } else if (emaDiff.doubleValue() < 0 && emaDiffPrev.doubleValue() >= 0) {
+                logger.info("!!!!!!!! SELL !!!!!!!!!");
                 tradingService.sendOrder("sell", BigDecimal.valueOf(0.002), "BTCUSD");
             }
         }
