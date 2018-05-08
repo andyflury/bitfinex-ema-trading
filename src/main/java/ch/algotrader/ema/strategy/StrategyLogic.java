@@ -49,6 +49,7 @@ public class StrategyLogic implements InitializingBean {
         EMAIndicator emaShort = new EMAIndicator(closePriceIndicator, this.emaPeriodShort);
         EMAIndicator emaLong = new EMAIndicator(closePriceIndicator, this.emaPeriodLong);
         this.emaDifference = new DifferenceIndicator(emaShort, emaLong);
+        logger.debug("Strategy initiated");
     }
 
     @EventListener
