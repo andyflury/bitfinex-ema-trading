@@ -16,8 +16,12 @@ public class TradeEventPublisher {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    private final ApplicationEventPublisher publisher;
+
     @Autowired
-    private ApplicationEventPublisher publisher;
+    public TradeEventPublisher(ApplicationEventPublisher publisher) {
+        this.publisher = publisher;
+    }
 
     void publish(String msg) {
         try {

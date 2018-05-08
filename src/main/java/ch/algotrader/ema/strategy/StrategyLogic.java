@@ -32,15 +32,19 @@ public class StrategyLogic implements InitializingBean {
     @Value("${emaPeriodShort}") private int emaPeriodShort;
     @Value("${emaPeriodLong}") private int emaPeriodLong;
 
-    @Autowired
-    private TradingService tradingService;
+    private final TradingService tradingService;
 
-    private TimeSeries series;
+    private final TimeSeries series;
     private DifferenceIndicator emaDifference;
 
-    @Override
-    public void afterPropertiesSet() throws Exception {
+    @Autowired
+    public StrategyLogic(TradingService tradingService) {
+        this.tradingService = tradingService;
         this.series = new BaseTimeSeries();
+    }
+
+    @Override
+    public void afterPropertiesSet() {
         ClosePriceIndicator closePriceIndicator = new ClosePriceIndicator(this.series);
         EMAIndicator emaShort = new EMAIndicator(closePriceIndicator, this.emaPeriodShort);
         EMAIndicator emaLong = new EMAIndicator(closePriceIndicator, this.emaPeriodLong);

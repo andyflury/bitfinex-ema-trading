@@ -12,7 +12,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -52,7 +52,7 @@ public class TradingService {
     public void sendOrder(String side, BigDecimal quantity, String symbol) {
         try {
             final NewOrderRequest bfxRequest = createNewBFXOrder(side, quantity, symbol);
-            final RequestEntity<?> post = createPost("order/new", bfxRequest);
+            final RequestEntity<String> post = createPost("order/new", bfxRequest);
             ResponseEntity<OrderResponse> response = restTemplate.exchange(post, OrderResponse.class);
             logger.info("executed market order ", response.getBody().toString());
         } catch (RestClientResponseException e) {
@@ -75,23 +75,18 @@ public class TradingService {
         return orderRequest;
     }
 
-    private String getRelativePath() {
-        final String[] split = baseUrl.split("//");
-        String path = split.length == 1 ? split[0] : split[1];
-        final int slashIndex = path.indexOf("/");
-        return slashIndex != -1 ? path.substring(slashIndex) : "/";
-    }
-
-    private RequestEntity<?> createPost(String path, Request pld) {
+    private RequestEntity<String> createPost(String path, Request pld) {
         String payloadStr = transformPayload(path, pld);
         return getRequestEntity(path, payloadStr, HttpMethod.POST);
     }
 
-    private RequestEntity<?> getRequestEntity(String path, String payloadStr, HttpMethod method) {
+    private RequestEntity<String> getRequestEntity(String path, String payloadStr, HttpMethod method) {
         final Map<String, String> payloadHdr = createAuthHttpHeaders(payloadStr);
 
-        final URI uri = createUri(baseUrl, path);
-        RequestEntity.BodyBuilder bodyBuilder = RequestEntity.method(method, uri).accept(MediaType.APPLICATION_JSON).contentType(MediaType.APPLICATION_JSON);
+        final UriComponents pathUri = UriComponentsBuilder.fromUriString(path).build();
+        final URI uri = UriComponentsBuilder.fromHttpUrl(baseUrl).uriComponents(pathUri).build().toUri();
+        RequestEntity.BodyBuilder bodyBuilder = RequestEntity.method(method, uri).accept(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_JSON);
 
         for (Map.Entry<String, String> entry : payloadHdr.entrySet()) {
             bodyBuilder = bodyBuilder.header(entry.getKey(), entry.getValue());
@@ -100,30 +95,8 @@ public class TradingService {
         return bodyBuilder.body(payloadStr);
     }
 
-    private URI createUri(String host, String path) {
-
-        try {
-            UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(host);
-
-            if (StringUtils.isNotBlank(path)) {
-                final String[] split = path.split("\\?");
-                if (split.length > 2) {
-                    throw new IllegalArgumentException("Multiple question marks in path: " + path);
-                }
-                uriBuilder.pathSegment(StringUtils.strip(split[0], "/"));
-                if (split.length == 2) {
-                    uriBuilder.query(split[1]);
-                }
-            }
-
-            return uriBuilder.build().toUri();
-        } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Failed to create URI", e);
-        }
-    }
-
     private String transformPayload(String path, Request payload) {
-        String relativePath = getRelativePath() + path;
+        String relativePath = UriComponentsBuilder.fromHttpUrl(baseUrl).build().getPath() + path;
         payload.setRequest(relativePath);
         payload.setNonce(String.valueOf(nonce.incrementAndGet()));
 

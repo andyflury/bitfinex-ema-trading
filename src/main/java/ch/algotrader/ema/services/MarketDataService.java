@@ -23,13 +23,17 @@ public class MarketDataService implements DisposableBean, InitializingBean {
 
     private static final Logger LOGGER = LogManager.getLogger(MarketDataService.class);
 
-    @Autowired
-    private TradeEventPublisher tradeUpdateEventPublisher;
+    private final TradeEventPublisher tradeUpdateEventPublisher;
 
     @Value("${ws-uri}") 
     private String wsUrl;
 
     private Session session;
+
+    @Autowired
+    public MarketDataService(TradeEventPublisher tradeUpdateEventPublisher) {
+        this.tradeUpdateEventPublisher = tradeUpdateEventPublisher;
+    }
 
     public void subscribeTrades(@NotNull String topic) {
 
@@ -68,7 +72,7 @@ public class MarketDataService implements DisposableBean, InitializingBean {
     }
 
     @Override
-    public void afterPropertiesSet() throws Exception {
+    public void afterPropertiesSet() {
         this.session = initSession();
     }
 
