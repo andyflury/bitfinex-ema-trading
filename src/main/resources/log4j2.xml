@@ -14,7 +14,7 @@
         <Root level="error">
             <AppenderRef ref="StdErr"/>
         </Root>
-        <Logger name="ch.algotrader.ema.strategy" level="debug" additivity="false">
+        <Logger name="ch.algotrader.ema" level="debug" additivity="false">
             <AppenderRef ref="StdOut"/>
         </Logger>
         <!--<logger name="org.springframework" level="error" />-->
