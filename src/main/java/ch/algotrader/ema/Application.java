@@ -12,15 +12,19 @@ import ch.algotrader.ema.services.MarketDataService;
 @EnableScheduling
 public class Application implements CommandLineRunner {
 
+    private final MarketDataService marketDataService;
+
     @Autowired
-    private MarketDataService marketDataService;
+    public Application(MarketDataService marketDataService) {
+        this.marketDataService = marketDataService;
+    }
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
         marketDataService.subscribeTrades("BTCUSD");
     }
 }
