@@ -11,10 +11,12 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Root level="info">
-            <AppenderRef ref="StdOut"/>
+        <Root level="error">
             <AppenderRef ref="StdErr"/>
         </Root>
-        <logger name="org.springframework" level="warn" />
+        <Logger name="ch.algotrader.ema.strategy" level="debug" additivity="false">
+            <AppenderRef ref="StdOut"/>
+        </Logger>
+        <!--<logger name="org.springframework" level="error" />-->
     </Loggers>
 </Configuration>
