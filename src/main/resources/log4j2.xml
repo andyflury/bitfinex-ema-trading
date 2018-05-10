@@ -17,6 +17,5 @@
         <Logger name="ch.algotrader.ema" level="debug" additivity="false">
             <AppenderRef ref="StdOut"/>
         </Logger>
-        <!--<logger name="org.springframework" level="error" />-->
     </Loggers>
 </Configuration>

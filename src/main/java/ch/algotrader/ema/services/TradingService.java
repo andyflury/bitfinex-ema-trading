@@ -85,8 +85,7 @@ public class TradingService {
 
         final UriComponents pathUri = UriComponentsBuilder.fromUriString(path).build();
         final URI uri = UriComponentsBuilder.fromHttpUrl(baseUrl).uriComponents(pathUri).build().toUri();
-        RequestEntity.BodyBuilder bodyBuilder = RequestEntity.method(method, uri).accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON);
+        RequestEntity.BodyBuilder bodyBuilder = RequestEntity.method(method, uri).accept(MediaType.APPLICATION_JSON).contentType(MediaType.APPLICATION_JSON);
 
         for (Map.Entry<String, String> entry : payloadHdr.entrySet()) {
             bodyBuilder = bodyBuilder.header(entry.getKey(), entry.getValue());

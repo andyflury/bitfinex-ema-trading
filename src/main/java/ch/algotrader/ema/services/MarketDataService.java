@@ -1,8 +1,18 @@
 package ch.algotrader.ema.services;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.net.URI;
 
-import ch.algotrader.ema.vo.Subscription;
+import javax.validation.constraints.NotNull;
+import javax.websocket.ClientEndpoint;
+import javax.websocket.CloseReason;
+import javax.websocket.ContainerProvider;
+import javax.websocket.DeploymentException;
+import javax.websocket.OnClose;
+import javax.websocket.OnMessage;
+import javax.websocket.OnOpen;
+import javax.websocket.Session;
+import javax.websocket.WebSocketContainer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -12,27 +22,30 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.validation.constraints.NotNull;
-import javax.websocket.*;
-import java.io.IOException;
-import java.net.URI;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import ch.algotrader.ema.strategy.StrategyLogic;
+import ch.algotrader.ema.vo.Subscription;
+import ch.algotrader.ema.vo.TradeEvent;
 
 @Service
 @ClientEndpoint
 public class MarketDataService implements DisposableBean, InitializingBean {
 
     private static final Logger LOGGER = LogManager.getLogger(MarketDataService.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    private final TradeEventPublisher tradeUpdateEventPublisher;
+    private final StrategyLogic strategyLogic;
 
-    @Value("${ws-uri}") 
+    @Value("${ws-uri}")
     private String wsUrl;
 
     private Session session;
 
     @Autowired
-    public MarketDataService(TradeEventPublisher tradeUpdateEventPublisher) {
-        this.tradeUpdateEventPublisher = tradeUpdateEventPublisher;
+    public MarketDataService(StrategyLogic strategyLogic) {
+        this.strategyLogic = strategyLogic;
     }
 
     public void subscribeTrades(@NotNull String topic) {
@@ -62,7 +75,19 @@ public class MarketDataService implements DisposableBean, InitializingBean {
 
     @OnMessage
     public void onMessage(Session session, String msg) {
-        tradeUpdateEventPublisher.publish(msg);
+
+        try {
+            final JsonNode json = objectMapper.readTree(msg);
+            if (json.isArray()) {
+                final JsonNode typeNode = json.get(1);
+                if ("tu".equals(typeNode.asText())) {
+                    final TradeEvent tradeEvent = TradeEvent.fromJson(json);
+                    strategyLogic.handleTradeEvent(tradeEvent);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

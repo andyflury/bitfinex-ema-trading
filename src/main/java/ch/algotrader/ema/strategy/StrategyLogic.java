@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.Bar;
@@ -29,12 +28,15 @@ public class StrategyLogic implements InitializingBean {
     
     private static final Logger logger = LoggerFactory.getLogger(StrategyLogic.class);
 
+    @Value("${symbol}") private String symbol;
+    @Value("${quantity}") private BigDecimal quantity;
+
     @Value("${emaPeriodShort}") private int emaPeriodShort;
     @Value("${emaPeriodLong}") private int emaPeriodLong;
 
     private final TradingService tradingService;
-
     private final TimeSeries series;
+
     private DifferenceIndicator emaDifference;
 
     @Autowired
@@ -49,10 +51,8 @@ public class StrategyLogic implements InitializingBean {
         EMAIndicator emaShort = new EMAIndicator(closePriceIndicator, this.emaPeriodShort);
         EMAIndicator emaLong = new EMAIndicator(closePriceIndicator, this.emaPeriodLong);
         this.emaDifference = new DifferenceIndicator(emaShort, emaLong);
-        logger.debug("Strategy initiated");
     }
 
-    @EventListener
     public void handleTradeEvent(TradeEvent event) {
 
         if (this.series.getEndIndex() >= 0) {
@@ -63,35 +63,32 @@ public class StrategyLogic implements InitializingBean {
     }
 
     @Scheduled(cron = "*/10 * * * * *")
-    public void ontime() {
+    public void onTime() {
         synchronized (series) {
-            evaluateLogic();
-            createNewBar();
+            try {
+                logBar();
+                evaluateLogic();
+                createNewBar();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
-    private void createNewBar() {
-
-        // create new bar
-        ZonedDateTime now = ZonedDateTime.now();
-        Duration duration = Duration.ofSeconds(10);
-        Bar newBar = new BaseBar(duration, now, this.series.function());
-
-        // set price to closing price of previous bar
+    private void logBar() {
+        
         int i = this.series.getEndIndex();
-        if (i >= 0) {
-            Bar previousBar = series.getBar(i);
-            newBar.addPrice(previousBar.getClosePrice());
-
-        }
-
-        series.addBar(newBar);
-    }
-
-    private void evaluateLogic() {
-
-        int i = this.series.getEndIndex();
-        if (i >= emaPeriodShort) {
+        if (i > 0 && i < emaPeriodLong) {
+            Bar bar = this.series.getBar(i);
+            logger.info("open {} high {} low {} close {} vol {} trades {}",
+                    bar.getOpenPrice(),
+                    bar.getMaxPrice(),
+                    bar.getMinPrice(),
+                    bar.getClosePrice(),
+                    bar.getVolume(),
+                    bar.getTrades());
+            
+        } else if (i >= emaPeriodLong) {
 
             Bar bar = this.series.getBar(i);
             Num emaDiff = this.emaDifference.getValue(i);
@@ -104,17 +101,47 @@ public class StrategyLogic implements InitializingBean {
                     bar.getClosePrice(),
                     bar.getVolume(),
                     bar.getTrades(),
-                    emaDiffPrev, 
+                    emaDiffPrev,
                     emaDiff);
+        }
+    }
+
+    private void evaluateLogic() {
+
+        int i = this.series.getEndIndex();
+        if (i >= emaPeriodLong) {
+
+            Num emaDiff = this.emaDifference.getValue(i);
+            Num emaDiffPrev = this.emaDifference.getValue(i - 1);
 
             if (emaDiff.doubleValue() > 0 && emaDiffPrev.doubleValue() <= 0) {
+
                 logger.info("!!!!!!!! BUY !!!!!!!!!)");
-                tradingService.sendOrder("buy", BigDecimal.valueOf(0.002), "BTCUSD");
+                tradingService.sendOrder("buy", quantity, symbol);
+
             } else if (emaDiff.doubleValue() < 0 && emaDiffPrev.doubleValue() >= 0) {
+
                 logger.info("!!!!!!!! SELL !!!!!!!!!");
-                tradingService.sendOrder("sell", BigDecimal.valueOf(0.002), "BTCUSD");
+                tradingService.sendOrder("sell", quantity, symbol);
             }
         }
+    }
+
+    private void createNewBar() {
+    
+        // create new bar
+        ZonedDateTime now = ZonedDateTime.now();
+        Duration duration = Duration.ofSeconds(10);
+        Bar newBar = new BaseBar(duration, now, this.series.function());
+    
+        // set price to closing price of previous bar
+        int i = this.series.getEndIndex();
+        if (i >= 0) {
+            Bar previousBar = series.getBar(i);
+            newBar.addPrice(previousBar.getClosePrice());
+        }
+    
+        series.addBar(newBar);
     }
 
 }
